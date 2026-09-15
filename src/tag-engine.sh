@@ -21,20 +21,37 @@ is_valid_semver() {
   [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]
 }
 
+parse_semver() {
+  local raw_version="$1"
+  local raw_major raw_minor raw_patch
+  IFS='.' read -r raw_major raw_minor raw_patch <<< "$raw_version"
+  local major minor patch
+  major=$(echo "${raw_major:-0}" | sed 's/^0*//' | sed 's/^$/0/')
+  minor=$(echo "${raw_minor:-0}" | sed 's/^0*//' | sed 's/^$/0/')
+  patch=$(echo "${raw_patch:-0}" | cut -d- -f1 | cut -d+ -f1 | sed 's/^0*//' | sed 's/^$/0/')
+  echo "$major $minor $patch"
+}
+
+resolve_latest_tag() {
+  local tag_prefix="${1:-v}"
+  local latest
+  # Prefer full SemVer tags (vX.Y.Z) sorted descending by version to ignore floating tags (e.g. v1)
+  latest=$(git tag -l "${tag_prefix}[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname 2>/dev/null | head -n 1 || echo "")
+  if [ -z "$latest" ]; then
+    latest=$(git describe --tags --abbrev=0 --match "${tag_prefix}*" 2>/dev/null || echo "")
+  fi
+  echo "$latest"
+}
+
 version_gt() {
   local v1="$1"
   local v2="$2"
 
   local v1_major v1_minor v1_patch
+  read -r v1_major v1_minor v1_patch <<< "$(parse_semver "$v1")"
+
   local v2_major v2_minor v2_patch
-
-  v1_major=$(echo "$v1" | cut -d. -f1 | sed 's/^0*//' | sed 's/^$/0/')
-  v1_minor=$(echo "$v1" | cut -d. -f2 | sed 's/^0*//' | sed 's/^$/0/')
-  v1_patch=$(echo "$v1" | cut -d. -f3 | cut -d- -f1 | cut -d+ -f1 | sed 's/^0*//' | sed 's/^$/0/')
-
-  v2_major=$(echo "$v2" | cut -d. -f1 | sed 's/^0*//' | sed 's/^$/0/')
-  v2_minor=$(echo "$v2" | cut -d. -f2 | sed 's/^0*//' | sed 's/^$/0/')
-  v2_patch=$(echo "$v2" | cut -d. -f3 | cut -d- -f1 | cut -d+ -f1 | sed 's/^0*//' | sed 's/^$/0/')
+  read -r v2_major v2_minor v2_patch <<< "$(parse_semver "$v2")"
 
   if [ "$v1_major" -gt "$v2_major" ]; then
     return 0
@@ -105,19 +122,16 @@ main() {
   # -------------------------------------------------------------------------
   # Get latest tag matching prefix
   # -------------------------------------------------------------------------
-  LATEST_TAG=$(git describe --tags --abbrev=0 --match "${TAG_PREFIX}*" 2>/dev/null || echo "")
+  LATEST_TAG=$(resolve_latest_tag "$TAG_PREFIX")
 
   if [ -z "$LATEST_TAG" ]; then
     # No prior tags — start from 0.0.0
     MAJOR=0; MINOR=0; PATCH=0
     CURRENT_VERSION="0.0.0"
   else
-    # Strip prefix and parse semver
+    # Strip prefix and parse semver safely
     CURRENT_VERSION="${LATEST_TAG#$TAG_PREFIX}"
-    # Handle zero-padded: strip leading zeros for arithmetic
-    MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1 | sed 's/^0*//' | sed 's/^$/0/')
-    MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2 | sed 's/^0*//' | sed 's/^$/0/')
-    PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3 | sed 's/^0*//' | sed 's/^$/0/')
+    read -r MAJOR MINOR PATCH <<< "$(parse_semver "$CURRENT_VERSION")"
   fi
 
   # -------------------------------------------------------------------------
@@ -130,9 +144,7 @@ main() {
     if [ "$VERSION_FORMAT" = "standard" ]; then
       NEW_VERSION="$PKG_TARGET_VERSION"
     else
-      PKG_MAJOR=$(echo "$PKG_TARGET_VERSION" | cut -d. -f1 | sed 's/^0*//' | sed 's/^$/0/')
-      PKG_MINOR=$(echo "$PKG_TARGET_VERSION" | cut -d. -f2 | sed 's/^0*//' | sed 's/^$/0/')
-      PKG_PATCH=$(echo "$PKG_TARGET_VERSION" | cut -d. -f3 | cut -d- -f1 | cut -d+ -f1 | sed 's/^0*//' | sed 's/^$/0/')
+      read -r PKG_MAJOR PKG_MINOR PKG_PATCH <<< "$(parse_semver "$PKG_TARGET_VERSION")"
       NEW_VERSION=$(format_version "$PKG_MAJOR" "$PKG_MINOR" "$PKG_PATCH" "$VERSION_FORMAT")
     fi
     NEW_TAG="${TAG_PREFIX}${NEW_VERSION}"

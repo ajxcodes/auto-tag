@@ -41,6 +41,14 @@ assert_eq "invalid non-semver" "1" "$(is_valid_semver 'abc' && echo 0 || echo 1)
 assert_eq "invalid incomplete" "1" "$(is_valid_semver '1.2' && echo 0 || echo 1)"
 
 echo ""
+echo "── parse_semver ──"
+assert_eq "parse '1' (floating tag)" "1 0 0" "$(parse_semver '1')"
+assert_eq "parse '1.2.0'" "1 2 0" "$(parse_semver '1.2.0')"
+assert_eq "parse '1.02.0' (zero-padded)" "1 2 0" "$(parse_semver '1.02.0')"
+assert_eq "parse '0.0.1'" "0 0 1" "$(parse_semver '0.0.1')"
+assert_eq "parse '' (empty)" "0 0 0" "$(parse_semver '')"
+
+echo ""
 echo "── version_gt ──"
 assert_eq "1.0.1 > 1.0.0" "0" "$(version_gt '1.0.1' '1.0.0' && echo 0 || echo 1)"
 assert_eq "1.1.0 > 1.0.9" "0" "$(version_gt '1.1.0' '1.0.9' && echo 0 || echo 1)"
@@ -49,6 +57,9 @@ assert_eq "1.0.0 > 1.0.0 (equal)" "1" "$(version_gt '1.0.0' '1.0.0' && echo 0 ||
 assert_eq "0.9.0 > 1.0.0 (less)" "1" "$(version_gt '0.9.0' '1.0.0' && echo 0 || echo 1)"
 assert_eq "1.2.3 > 1.02.0 (zero-padded comparison)" "0" "$(version_gt '1.2.3' '1.02.0' && echo 0 || echo 1)"
 assert_eq "1.0.0 > 0.0.0 (no prior tags)" "0" "$(version_gt '1.0.0' '0.0.0' && echo 0 || echo 1)"
+assert_eq "1.1.0 > 1 (floating tag comparison)" "0" "$(version_gt '1.1.0' '1' && echo 0 || echo 1)"
+assert_eq "1.0.0 > 1 (equal floating tag)" "1" "$(version_gt '1.0.0' '1' && echo 0 || echo 1)"
+assert_eq "1 > 1.0.0 (floating vs semver equal)" "1" "$(version_gt '1' '1.0.0' && echo 0 || echo 1)"
 
 # ---------------------------------------------------------------------------
 # bump_from_commits helper (used for conventional commit signal verification)
@@ -142,6 +153,27 @@ assert_eq "invalid semver in package.json falls back" "1" "$PKG_VER_STATUS"
 # Test 8: Missing file -> falls back (returns 1)
 PKG_VER_STATUS=$(check_package_version "$TMP_TEST_DIR/nonexistent.json" "1.0.0" >/dev/null && echo "0" || echo "1")
 assert_eq "missing manifest file falls back" "1" "$PKG_VER_STATUS"
+
+echo ""
+echo "── resolve_latest_tag: ignore floating tags ──"
+GIT_TEST_DIR="$TMP_TEST_DIR/git_repo"
+mkdir -p "$GIT_TEST_DIR"
+(
+  cd "$GIT_TEST_DIR"
+  git init -q
+  git config user.name "test"
+  git config user.email "test@example.com"
+  echo "initial" > file.txt
+  git add file.txt && git commit -q -m "initial commit"
+  git tag v1.0.0
+  git tag v1
+  RESOLVED_TAG=$(resolve_latest_tag "v")
+  assert_eq "resolve_latest_tag prefers v1.0.0 over floating v1" "v1.0.0" "$RESOLVED_TAG"
+
+  git tag v1.2.0
+  RESOLVED_TAG_2=$(resolve_latest_tag "v")
+  assert_eq "resolve_latest_tag resolves latest v1.2.0 over floating v1" "v1.2.0" "$RESOLVED_TAG_2"
+)
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
