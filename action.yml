@@ -1,0 +1,49 @@
+name: auto-tag
+description: Computes SemVer tags based on Conventional Commits and PR labels, then creates a GitHub Release.
+author: ajxcodes
+
+inputs:
+  github-token:
+    description: GitHub token for authentication (required).
+    required: true
+  default-bump:
+    description: Default bump level when no conventional commit signal is found (major, minor, patch, none).
+    required: false
+    default: patch
+  tag-prefix:
+    description: Prefix prepended to the version number (e.g. "v" → v1.2.3).
+    required: false
+    default: v
+  version-format:
+    description: Version formatting mode. "standard" = X.Y.Z, anything else = zero-padded minor/patch (X.0Y.Z).
+    required: false
+    default: standard
+  create-release:
+    description: Whether to create a GitHub Release after tagging.
+    required: false
+    default: "true"
+
+outputs:
+  new-tag:
+    description: The newly created tag (e.g. v1.3.0), or the existing latest tag if no bump was required.
+    value: ${{ steps.tag-engine.outputs.new-tag }}
+  release-url:
+    description: URL of the GitHub Release created, or empty string if none was created.
+    value: ${{ steps.tag-engine.outputs.release-url }}
+  bumped:
+    description: '"true" if a new tag was created, "false" otherwise.'
+    value: ${{ steps.tag-engine.outputs.bumped }}
+
+runs:
+  using: composite
+  steps:
+    - name: Run tag engine
+      id: tag-engine
+      shell: bash
+      env:
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_DEFAULT_BUMP: ${{ inputs.default-bump }}
+        INPUT_TAG_PREFIX: ${{ inputs.tag-prefix }}
+        INPUT_VERSION_FORMAT: ${{ inputs.version-format }}
+        INPUT_CREATE_RELEASE: ${{ inputs.create-release }}
+      run: ${{ github.action_path }}/src/tag-engine.sh

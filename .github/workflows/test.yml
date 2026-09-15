@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint Action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run actionlint
+        uses: rhysd/actionlint@v1.7.12
+        with:
+          files: action.yml
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    # Local testing with act:
+    #   act push --job test -s GITHUB_TOKEN=your_token
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run bash unit tests
+        run: bash tests/test-tag-engine.sh
