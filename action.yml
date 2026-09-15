@@ -22,6 +22,10 @@ inputs:
     description: Whether to create a GitHub Release after tagging.
     required: false
     default: "true"
+  package-json:
+    description: Whether to check package.json for version changes ("true", "false", or path to custom JSON file).
+    required: false
+    default: "true"
 
 outputs:
   new-tag:
@@ -46,4 +50,5 @@ runs:
         INPUT_TAG_PREFIX: ${{ inputs.tag-prefix }}
         INPUT_VERSION_FORMAT: ${{ inputs.version-format }}
         INPUT_CREATE_RELEASE: ${{ inputs.create-release }}
+        INPUT_PACKAGE_JSON: ${{ inputs.package-json }}
       run: ${{ github.action_path }}/src/tag-engine.sh

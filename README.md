@@ -14,6 +14,7 @@ A GitHub composite action that automatically computes and applies SemVer tags ba
     tag-prefix: v                # default: "v"
     version-format: standard     # standard (X.Y.Z) | any other value = zero-padded minor (X.0Y.Z)
     create-release: "true"       # "true" | "false"
+    package-json: "true"         # "true" | "false" | custom file path (e.g. "path/to/package.json")
 ```
 
 ---
@@ -27,6 +28,7 @@ A GitHub composite action that automatically computes and applies SemVer tags ba
 | `tag-prefix` | ❌ | `v` | Prefix prepended to the version number |
 | `version-format` | ❌ | `standard` | `standard` → `X.Y.Z`; anything else → zero-padded minor (`X.0Y.Z`) |
 | `create-release` | ❌ | `true` | Whether to create a GitHub Release after tagging |
+| `package-json` | ❌ | `true` | Whether to detect version bumps from `package.json` (`"true"`, `"false"`, or custom JSON path) |
 
 ---
 
@@ -42,17 +44,20 @@ A GitHub composite action that automatically computes and applies SemVer tags ba
 
 ## Bump Logic
 
-Bump level is determined in priority order:
+Release version is determined in priority order:
 
-1. **PR labels** (highest priority, evaluated via `gh` CLI):
+1. **Manifest version** (`package.json` or custom file path):
+   - If enabled and the manifest defines a valid SemVer greater than the latest tag, that version is used directly as the release tag (commit message and PR label analysis are skipped).
+   - If the version in `package.json` equals the latest tag or is absent, the engine falls back to standard commit and PR analysis.
+2. **PR labels** (evaluated via `gh` CLI):
    - `release:major` → major
    - `release:minor` → minor
    - `release:patch` → patch
-2. **Conventional Commit prefixes** in commit messages since the last tag:
+3. **Conventional Commit prefixes** in commit messages since the last tag:
    - `feat!:` or `BREAKING CHANGE:` → major
    - `feat:` → minor
    - `fix:` → patch
-3. **`default-bump`** input as fallback (use `none` to skip tagging if no signal is found)
+4. **`default-bump`** input as fallback (use `none` to skip tagging if no signal is found)
 
 ---
 
