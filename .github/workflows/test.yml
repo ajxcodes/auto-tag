@@ -26,3 +26,33 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run bash unit tests
         run: bash tests/test-tag-engine.sh
+
+  auto-tag:
+    name: Auto Tag & Release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run auto-tag
+        id: auto-tag
+        uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Floating Major Tag
+        if: steps.auto-tag.outputs.bumped == 'true'
+        run: |
+          NEW_TAG="${{ steps.auto-tag.outputs.new-tag }}"
+          MAJOR_TAG=$(echo "$NEW_TAG" | cut -d. -f1)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$MAJOR_TAG" "$NEW_TAG"
+          git push -f origin "$MAJOR_TAG"
