@@ -1,6 +1,6 @@
 {
   "name": "@ajxcodes/auto-tag",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Computes SemVer tags based on Conventional Commits, PR labels, and package.json",
   "private": true
 }
