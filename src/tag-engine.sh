@@ -234,8 +234,7 @@ main() {
   if [ "$CREATE_RELEASE" = "true" ]; then
     RELEASE_URL=$(gh release create "$NEW_TAG" \
       --title "Release $NEW_TAG" \
-      --notes "$CHANGELOG" \
-      --json url --jq '.url' 2>/dev/null || echo "")
+      --notes "$CHANGELOG" 2>/dev/null || echo "")
   fi
 
   # -------------------------------------------------------------------------

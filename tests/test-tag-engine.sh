@@ -173,6 +173,11 @@ mkdir -p "$GIT_TEST_DIR"
   git tag v1.2.0
   RESOLVED_TAG_2=$(resolve_latest_tag "v")
   assert_eq "resolve_latest_tag resolves latest v1.2.0 over floating v1" "v1.2.0" "$RESOLVED_TAG_2"
+
+  git tag v1.x
+  git tag latest
+  RESOLVED_TAG_3=$(resolve_latest_tag "v")
+  assert_eq "resolve_latest_tag ignores v1.x and latest" "v1.2.0" "$RESOLVED_TAG_3"
 )
 
 echo ""
